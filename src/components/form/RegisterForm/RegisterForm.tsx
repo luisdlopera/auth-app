@@ -7,8 +7,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form'
-import { useToast } from "@/hooks/use-toast"
-
+import { useToast } from '@/hooks/use-toast'
+import { ToastAction } from '@/components/ui/toast'
+import { Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 const formSchema = z.object({
     username: z.string().min(3, {
@@ -22,7 +24,7 @@ const formSchema = z.object({
     }),
     confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
+    message: 'Passwords dont match',
     path: ['confirmPassword'],
 })
 
@@ -30,6 +32,7 @@ const RegisterForm = () => {
     const [isLoading, setIsLoading] = useState(false)
 
     const { toast } = useToast()
+    const router = useRouter()
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -41,18 +44,56 @@ const RegisterForm = () => {
         },
     })
 
-    function onSubmit(values: z.infer<typeof formSchema>) {
-        setIsLoading(true)
-        // Simulate API call
-        setTimeout(() => {
-            console.log(values)
-            setIsLoading(false)
-            toast({
-                title: 'Registration Successful',
-                description: 'You have successfully registered!',
+    async function onSubmit(values: z.infer<typeof formSchema>) {
+
+        try {
+            setIsLoading(true)
+
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(values),
             })
-            form.reset()
-        }, 2000)
+            const resJson = await response.json();
+            console.log('this is the response', resJson)
+
+            if (response.ok) {
+                router.push('/dashboard')
+                toast({
+                    variant: 'default',
+                    title: 'Account created!',
+                    description: 'Your account has been successfully created.',
+                    action: <ToastAction altText='Close'>Close</ToastAction>,
+                });
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Error',
+                    description: resJson.error || 'There was a problem with your request.',
+                    action: <ToastAction altText='Try again'>Try again</ToastAction>,
+                });
+            }
+
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Uh oh! Something went wrong.',
+                description: 'There was a problem with your request.',
+                action: <ToastAction altText='Try again'>Try again</ToastAction>,
+            })
+            console.error(error)
+        } finally {
+            setIsLoading(false)
+        }
+        // Simulate API call
+        // setTimeout(() => {
+        //     console.log(values)
+        //     setIsLoading(false)
+
+        //     form.reset()
+        // }, 2000)
     }
 
     return (
@@ -112,7 +153,14 @@ const RegisterForm = () => {
                         )}
                     />
                     <Button type='submit' className='w-full' disabled={isLoading}>
-                        {isLoading ? 'Registering...' : 'Register'}
+                        {isLoading ? (
+                            <>
+                                <Loader2 className='animate-spin mr-2' />
+                                Registering...
+                            </>
+                        ) : (
+                            'Register'
+                        )}
                     </Button>
                 </form>
             </Form>

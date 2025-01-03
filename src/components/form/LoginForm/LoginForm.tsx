@@ -6,27 +6,26 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { EyeIcon, EyeOffIcon, GithubIcon } from 'lucide-react';
-// import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react';
 import {
     Form,
     FormControl,
-    // FormDescription,
     FormField,
     FormItem,
     FormMessage,
 } from '@/components/ui/form'
-
+import { signIn } from 'next-auth/react'
+import { toast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
-    username: z.string()
+    email: z.string()
         .min(2, { message: 'Username must be at least 2 characters.' })
-        .regex(/^[a-zA-Z0-9_]+$/, { message: 'Username can only contain letters, numbers, and underscores.' }),
+        .email({ message: 'Invalid email address.' }),
     password: z.string()
         .min(6, { message: 'Password must be at least 6 characters.' })
-        .regex(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/, { message: 'Password must contain at least one letter and one number.' }),
 });
 
 const LoginForm = () => {
@@ -37,20 +36,50 @@ const LoginForm = () => {
         setShowPassword(!showPassword)
     }
 
-    // 1. Define your form.
+    const Router = useRouter()
+
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            username: '',
+            email: '',
             password: '',
         },
     })
 
-    // 2. Define a submit handler.
-    function onSubmit(values: z.infer<typeof formSchema>) {
-        // Do something with the form values.
-        // ✅ This will be type-safe and validated.
-        console.log(values)
+    async function onSubmit(data: z.infer<typeof formSchema>) {
+        const response = await signIn('credentials', {
+            email: data.email,
+            password: data.password,
+            redirect: false
+        })
+        console.log(response)
+        
+        if (!response) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'No response from the server.',
+            });
+            return;
+        }
+    
+        if (response.error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Invalid credentials',
+            });
+            return;
+        } else {
+            toast({
+                variant: 'default',
+                title: 'Success',
+                description: 'You have successfully logged in.',
+            });
+            Router.push('/dashboard')
+        }
+    
+        console.log(response)
     }
 
     return (
@@ -63,11 +92,11 @@ const LoginForm = () => {
                 <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8 w-full'>
                     <FormField
                         control={form.control}
-                        name='username'
+                        name='email'
                         render={({ field }) => (
                             <FormItem>
                                 <FormControl>
-                                    <Input placeholder='Enter username' {...field} />
+                                    <Input placeholder='Enter your email' {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -105,12 +134,13 @@ const LoginForm = () => {
                                 <FormMessage />
                             </FormItem>
                         )}
-                    />
+                    /> 
                     <Button type='submit' className='w-full'>Log In</Button>
+
                     <Link href='/auth/forgot-password' className='flex justify-center w-full text-sm text-blue-600 hover:underline'>
                         Forgot your password?
                     </Link>
-                    {/* <Separator className='w-full' /> */}
+
                     <div className='grid grid-cols-2 gap-4 w-full'>
                         <Button variant='outline' type='button' className='w-full'>
                             <GithubIcon className='mr-2 h-4 w-4' />
